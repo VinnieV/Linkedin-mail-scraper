@@ -1,72 +1,150 @@
-#!/usr/bin/python
-
+#! /usr/bin/python
+# Written by Vinnie Vanhoecke
 import json,httplib
 import time
 import re
-import sys
-from urllib2 import Request, urlopen  # Python 2
-## Global variables:
-# Counter for found users
-count = 0
-# Counter for names that need a manual check
-count2 = 0 
-# Holds persons with special character names on linkedin
-needManual = []
+import sys, getopt
+from urllib2 import Request, urlopen
+import urllib
 
+## Global variables:
+# Request parameters
+search = ''
+authcookie = ''
+# Boolean to see end of the pages
+endReached = False
+# Hold persons found with no special character on LinkedIn
+loot = []
+# Holds persons with special character names on LinkedIn
+needManual = []
+# Mail formating
+domain = ""
+separator = ""
+format = "1"
+# Output filename
+output = "output.csv" 
+
+def help():
+	print "##########################################"
+	print "./linkedin-mail-scraper.py -k <keywords> -c <li_at_cookie> -d <domain>"
+	print " -k, --keywords  : Give the keywords to search for on LinkedIn"
+	print " -c, --cookie    : Set authentication cookie"
+	print "    Provide the cookie value of li_at when having a valid session on LinkedIn"
+	print "\n### Mail format ###"
+	print " -d, --domain    : Domain after @"
+	print " -s, --separator : (optional) Give the separator (by default there is no separator)"
+	print " -f, --format    : (optional) Currently two hardcoded formats"
+	print "    1: firstname<separator>lastname@... (default)"
+	print "    2: lastname<separator>firstname@..."
+	print "\n -o, --output    : (optional) Output filename"
+	print " -h, --help      : This helpmenu"
+	print "\n### Example ###"
+	print "# Search for employees of Microsoft in format firstname.lastname@microsoft.com output to microsoft_targets.csv"
+	print " ./linkedin-mail-scraper.py -k \"Microsoft\" -c AQEFAHA.....AXfUQ4ix -d microsoft.com -s . -o microsoft_targets.csv"
+	print "# Search for employees of Microsoft in format lastname.firstname@microsoft.com"
+	print " ./linkedin-mail-scraper.py -k \"Microsoft\" -c AQEFAHA.....AXfUQ4ix -d microsoft.com -s . -f 2"
+	print "##########################################"
 
 def searchNames(data):
-	global count
-	global count2
-	global needManual	
+	# Global variables
+	global count,needManual,search,domain,separator,format,output,loot,endReached
+	# Local variables	
 	searchData = ""
+	
+	# Only get the line with the actual searchdata
 	for line in data.readlines():
-		if "firstName" in line:
+		if ":&quot;GLOBAL_SEARCH_HEADER&quot;," in line:
 			searchData = line
-
+	# Fix quotings
 	searchData = searchData.replace("&quot;",'\"')
 
-        try:
-            b = json.loads(searchData)
-        except:
-            return
-        needManual = []
-	for c in b["included"]:
-		if "firstName" in c:
-			d = json.dumps(c)
-			d = json.loads(d)
-			if "Belfius" in d["occupation"]: 
-				# Remove spaces from names
-				d["firstName"] = re.sub("[\ ]","",d["firstName"])
-				d["lastName"] = re.sub("[\ ]","",d["lastName"])
-				# Check if there are no other special characters
-				if re.search("^[a-zA-Z\ -]+$", d["lastName"]):
-					if re.search("^[a-zA-Z\ -]+$", d["firstName"]):
-					    # Print the email adres
-                                            try:
-					        print str(d["firstName"]).lower() + "." + str(d["lastName"]).lower() + "@belfius.be," + str(d["occupation"]) 
-                                            except:
-					        print str(d["firstName"]).lower() + "." + str(d["lastName"]).lower() + "@belfius.be,Belfius"  
+	# Convert to json data
+	try:
+		json_data = json.loads(searchData)
+	except:
+		print "Error occured when parsing the response from linkedin"
+		return 
+	# To check for end reached
+	if len(json_data["included"]) == 0:
+		endReached = True
+	for data_line in json_data["included"]:
+		# Filter out profile data and 
+		if "firstName" in data_line:
+			profile_data = json.dumps(data_line)
+			profile_data = json.loads(profile_data)
+			# Filter again on the search keyword because its gives false positives
+			if not search in profile_data["occupation"].lower():
+				continue 
+			# Remove spaces from names
+			profile_data["firstName"] = re.sub("[\ ]","",profile_data["firstName"]).lower()
+			profile_data["lastName"] = re.sub("[\ ]","",profile_data["lastName"]).lower()
+			# Check if there are no other special characters
+			if not re.search("^[a-zA-Z\ -]+$", profile_data["lastName"] + profile_data["firstName"] + profile_data["occupation"]):
+				needManual.append(profile_data["firstName"] + " " + profile_data["lastName"]) 
+				continue
+			# Get more false positives out of it
+			if profile_data["firstName"] == "" or profile_data["lastName"] == "": 
+				continue
+			# Save the information
+			if format == "1":
+ 				loot.append(str(profile_data["firstName"]) + "," + str(profile_data["lastName"])  + "," + str(profile_data["firstName"]) + separator + str(profile_data["lastName"]) + "@" + domain + "," + str(profile_data["occupation"]))
+ 			elif format == "2":
+ 				loot.append(str(profile_data["firstName"]) + "," + str(profile_data["lastName"])  + "," +str(profile_data["lastName"]) + separator + str(profile_data["firstName"]) + "@" + domain + "," + str(profile_data["occupation"]))
 
-					else:
-					    count2 = count2 + 1
-					    needManual.append(d["firstName"] + " " + d["lastName"])
-				else:
-					count2 = count2 + 1
-					needManual.append(d["firstName"] + " " + d["lastName"])
-				count = count + 1
+
+# Get the parameters
+def main(argv):
+	global search,authcookie,domain,separator,format,output
+	if len(argv) == 0:
+		help()
+		sys.exit()
+	try:
+		opts, args = getopt.getopt(argv,"hk:c:d:s:f:o:h",["keywords=","cookie=","domain=","separator=","format=","output=","help"])
+	except getopt.GetoptError:
+		sys.exit(2)
+	for opt, arg in opts:
+		if opt in ("-k", "--keywords"):
+			search = arg.lower()
+		elif opt in ("-c", "--cookie"):
+			authcookie = arg 
+		elif opt in ("-d", "--domain"):
+			domain = arg
+		elif opt in ("-s", "--separator"):
+			separator = arg
+		elif opt in ("-f", "--format"):
+			format = arg
+		elif opt in ("-o", "--output"):
+			output = arg
+		elif opt in ("-h", "--help"):
+			help()
+			sys.exit()
+	print search
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
 
 
 # Main loop to iterate over all the pages (max is apperently 100 so this makes max 1000 mail addresses)
 for i in range(1,100):
-	q = Request("https://www.linkedin.com/search/results/people/?facetCurrentCompany=%5B%222515234%22%5D&facetGeoRegion=%5B%22be%3A4920%22%5D&origin=GLOBAL_SEARCH_HEADER&page=" + str(i))
-	q.add_header('Cookie', 'bcookie="v=2&ab6aace1-af0b-49d0-8836-93a567f6dd7e"; bscookie="v=1&20180102134727b91b116a-47e7-4803-83a4-6676f3f2c070AQFbO6vPTMn3E8cRsYBqe1F--PDNkHr9"; JSESSIONID="ajax:4169467469122887069"; visit="v=1&M"; sl="v=1&hSLBB"; li_at=AQEDAQQ9z4UEiRygAAABYMaF00oAAAFg6pJXSk4Aze3CQTS3fQ_8nkwT-pBjWacv-CBYV1WGqLL3SUXno655pxccqX5XyixMux1x6JOw1ugMja_7JsFXyS9qZY07Ck9jIs_9TkRLhYuKJmGpg1aP-1sz; liap=true; _lipt=CwEAAAFg5STQU3p_7s5DoyHVgFbric_O9BEevGjsJKtRQh7ksNoAECejsVEB1mx4qkiLraAoi3q2c5W4OeMsgoJ5W6C_B8qbf_A-YYHOCwttvrwfru6PgcDlMqmauJW31xJbevzxcYXjgpb1pBOH9z-uHuo2IIYOhCunJiU0fj1wJQQFgMUS4AXwOL8O7ROvMbLNBN2u1nqnbEgyregS_-WNBVm5987AgtY5ghDQRNOYUt03ZFnb91A1w9LsZvXvmw2AjcSliIKYkKtST9hmGMF7wwyd1IedKrNekcEglUkrGl4pg3KdrctSpvfHwjdZoVw6EkrfOP4Ov5EFnOg; _ga=GA1.2.582980139.1515159151; lidc="b=TB85:g=914:u=95:i=1515672910:t=1515758854:s=AQGjd-2OuCQQfBjDWZd4Ezux1MQmFfT9"; lang="v=2&lang=en-us"')
-	a = urlopen(q)
-	searchNames(a)
+	url = "https://www.linkedin.com/search/results/index/?" + urllib.urlencode({"keywords":search,"origin":"GLOBAL_SEARCH_HEADER","page":i}) 
+	reqGetEmployees = Request(url)
+	reqGetEmployees.add_header('Cookie', 'li_at="' + authcookie + '";')
+	print "[PAGE " + str(i) + "] " + url
+	response = urlopen(reqGetEmployees)
+	searchNames(response)
+	if endReached:
+		print "[END reached]"
+		break
 
 
-
-print "\nFound " + str(count) + " accounts"
+# Results
 print "\n##############################################################\n" 
-print str(count2) + " account need manual verification:"
+print "\nFound " + str(len(loot)) + " accounts"
+print str(len(needManual)) + " account need manual verification:"
 for x in needManual:
     print x
+output_file = open(output,"w+")
+for x in loot:
+	output_file.write(x + "\n")
+output_file.close()
