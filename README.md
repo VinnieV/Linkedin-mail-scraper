@@ -23,10 +23,10 @@ Usefull python script to gather mail addresses from a specific company via Linke
 ```
 
 # Examples
-Search for employees of Microsoft in format firstname.lastname@microsoft.com output to microsoft_targets.csv
-`./linkedin-mail-scraper.py -k "Microsoft" -c AQEFAHA.....AXfUQ4ix -d microsoft.com -s . -o microsoft_targets.csv`
-Search for employees of Microsoft in format lastname.firstname@microsoft.com
-`./linkedin-mail-scraper.py -k "Microsoft" -c AQEFAHA.....AXfUQ4ix -d microsoft.com -s . -f 2`
+Search for employees of Microsoft in format `firstname.lastname@microsoft.com` output to microsoft_targets.csv
+```./linkedin-mail-scraper.py -k "Microsoft" -c AQEFAHA.....AXfUQ4ix -d microsoft.com -s . -o microsoft_targets.csv```
+Search for employees of Microsoft in format `lastname.firstname@microsoft.com`
+```./linkedin-mail-scraper.py -k "Microsoft" -c AQEFAHA.....AXfUQ4ix -d microsoft.com -s . -f 2```
 
 
 # TODO
