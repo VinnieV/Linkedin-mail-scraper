@@ -1,5 +1,5 @@
 # LinkedIn Mail Scraper
-Usefull python script to gather mail addresses from a specific company via LinkedIn. It basically makes regular HTTP request with a cookie containing the authentication to LinkedIn to search for people who set their current job to the company.  
+Useful python script to gather mail addresses from a specific company via LinkedIn. It basically makes regular HTTP request with a cookie containing the authentication to LinkedIn to search for people who set their current job to the company.  
 
 # Usage
 ```
@@ -34,9 +34,9 @@ Search for employees of Microsoft in format `lastname.firstname@microsoft.com`
 
 # TODO
 * Make filter more exact with facetCurrentCompany=["<company-ID>"]
-* Deeper search to get limit the amount of pages of results by just filtering a bit more and going over all the posibilites
+* Deeper search to get limit the amount of pages of results by just filtering a bit more and going over all the possibilities
 * Deal with special characters
 * Make formatting more flexible
 
 # Ideas
-* Link it to HaveIBeenPwned for potential disclore of credentials
+* Link it to HaveIBeenPwned for potential disclosure of credentials
